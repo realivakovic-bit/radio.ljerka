@@ -6,30 +6,56 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+app.use(express.static("public"));
+
 let listeners = 0;
 
-app.use(express.static("public"));
+function broadcastCount() {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({
+        type: "count",
+        listeners: listeners
+      }));
+    }
+  });
+}
 
 wss.on("connection", (ws) => {
 
+  let listening = false;
+
   ws.on("message", (msg) => {
 
-    if (msg.toString() === "play") {
+    if (msg.toString() === "play" && !listening) {
+      listening = true;
       listeners++;
-      console.log("Listeners:", listeners);
+      broadcastCount();
     }
 
-    if (msg.toString() === "stop") {
+    if (msg.toString() === "stop" && listening) {
+      listening = false;
       listeners--;
-      console.log("Listeners:", listeners);
+      broadcastCount();
     }
 
   });
+
+  ws.on("close", () => {
+
+    if (listening) {
+      listeners--;
+      broadcastCount();
+    }
+
+  });
+
+  broadcastCount();
 
 });
 
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on ${PORT}`);
 });
