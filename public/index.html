@@ -1,1 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Radio Ljerka</title>
+</head>
 
+<body>
+<h1>Radio Ljerka</h1>
+<p>Online radio koji se gubi što ga više ljudi sluša.</p>
+
+<button id="play">Slušaj prijenos</button>
+<button id="stop">Prekini prijem</button>
+
+<p id="status">Nisi spojena.</p>
+
+<script>
+const socket = new WebSocket(
+  location.origin.replace("http", "ws")
+);
+
+document.getElementById("play").onclick = () => {
+  socket.send("play");
+  document.getElementById("status").innerText = "Slušaš prijenos.";
+};
+
+document.getElementById("stop").onclick = () => {
+  socket.send("stop");
+  document.getElementById("status").innerText = "Prijem prekinut.";
+};
+</script>
+</body>
+</html>
