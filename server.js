@@ -7,6 +7,9 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 app.use(express.static("public"));
+app.get("/count", (req, res) => {
+  res.json({ listeners: listeners });
+});
 
 let listeners = 0;
 
