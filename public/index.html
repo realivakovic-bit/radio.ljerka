@@ -4,85 +4,57 @@
 <meta charset="utf-8">
 <title>Radio Ljerka</title>
 </head>
-<p id="listeners">
-Trenutno sluša: 0
-</p>
+
 <body>
 <h1>Radio Ljerka</h1>
+
+<p id="listeners">Trenutno sluša: 0</p>
+
 <p>Online radio koji se gubi što ga više ljudi sluša.</p>
 
 <button id="play">Slušaj prijenos</button>
 <button id="stop">Prekini prijem</button>
-<audio id="audio" src="arhiv.mp3" loop></audio>
+
+<br><br>
+
+<audio id="audio" src="./arhiv.mp3" loop controls></audio>
+
 <p id="status">Nisi spojena.</p>
 
 <script>
 const socket = new WebSocket(
-  location.origin.replace("http","ws")
+  location.origin.replace("http", "ws")
 );
 
 const audio = document.getElementById("audio");
-let currentListeners = 0;
-
-const context = new AudioContext();
-const source = context.createMediaElementSource(audio);
-
-const distortion = context.createWaveShaper();
-const gain = context.createGain();
-
-source.connect(distortion);
-distortion.connect(gain);
-gain.connect(context.destination);
-
-function makeDistortion(amount) {
-  const samples = 44100;
-  const curve = new Float32Array(samples);
-
-  for (let i = 0; i < samples; i++) {
-    const x = i * 2 / samples - 1;
-    curve[i] = ((3 + amount) * x * 20 * Math.PI / 180) /
-      (Math.PI + amount * Math.abs(x));
-  }
-
-  return curve;
-}
-
-function updateSound() {
-  const amount = currentListeners * 80;
-
-  distortion.curve = makeDistortion(amount);
-  gain.gain.value = Math.max(0.15, 1 - currentListeners * 0.05);
-}
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
   if (data.type === "count") {
-    currentListeners = data.listeners;
-
     document.getElementById("listeners").innerText =
-      "Trenutno sluša: " + currentListeners;
-
-    updateSound();
+      "Trenutno sluša: " + data.listeners;
   }
 };
 
-document.getElementById("play").onclick = async () => {
-  await context.resume();
-  audio.play();
-
-  socket.send("play");
-
-  document.getElementById("status").innerText =
-    "Slušaš prijenos.";
+document.getElementById("play").onclick = () => {
+  audio.volume = 1;
+  audio.play()
+    .then(() => {
+      socket.send("play");
+      document.getElementById("status").innerText = "Slušaš prijenos.";
+    })
+    .catch((error) => {
+      document.getElementById("status").innerText =
+        "Zvuk se nije pokrenuo. Klikni play na audio playeru.";
+      console.log(error);
+    });
 };
 
 document.getElementById("stop").onclick = () => {
   audio.pause();
   socket.send("stop");
-
-  document.getElementById("status").innerText =
-    "Prijem prekinut.";
+  document.getElementById("status").innerText = "Prijem prekinut.";
 };
 </script>
 </body>
