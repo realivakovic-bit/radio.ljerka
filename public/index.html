@@ -17,19 +17,47 @@ Trenutno sluša: 0
 <p id="status">Nisi spojena.</p>
 
 <script>
+
 const socket = new WebSocket(
-  location.origin.replace("http", "ws")
+  location.origin.replace("http","ws")
 );
 
-document.getElementById("play").onclick = () => {
-  socket.send("play");
-  document.getElementById("status").innerText = "Slušaš prijenos.";
+socket.onmessage = (event) => {
+
+  const data = JSON.parse(event.data);
+
+  if (data.type === "count") {
+
+    document.getElementById("listeners")
+      .innerText =
+      "Trenutno sluša: " + data.listeners;
+
+  }
+
 };
 
-document.getElementById("stop").onclick = () => {
-  socket.send("stop");
-  document.getElementById("status").innerText = "Prijem prekinut.";
+document.getElementById("play")
+.onclick = () => {
+
+  socket.send("play");
+
+  document.getElementById("status")
+    .innerText =
+    "Slušaš prijenos.";
+
 };
+
+document.getElementById("stop")
+.onclick = () => {
+
+  socket.send("stop");
+
+  document.getElementById("status")
+    .innerText =
+    "Prijem prekinut.";
+
+};
+
 </script>
 </body>
 </html>
