@@ -7,54 +7,81 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 app.use(express.static("public"));
-app.get("/count", (req, res) => {
-  res.json({ listeners: listeners });
-});
+app.use(express.json());
 
 let listeners = 0;
+let degradation = 0;
 
-function broadcastCount() {
+function broadcast(data) {
+  const message = JSON.stringify(data);
+
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({
-        type: "count",
-        listeners: listeners
-      }));
+      client.send(message);
     }
   });
 }
 
-wss.on("connection", (ws) => {
+function broadcastCount() {
+  broadcast({
+    type: "count",
+    listeners: listeners
+  });
+}
 
+function broadcastDegradation() {
+  broadcast({
+    type: "degradation",
+    value: degradation
+  });
+}
+
+app.get("/count", (req, res) => {
+  res.json({ listeners: listeners });
+});
+
+app.post("/degradation", (req, res) => {
+  degradation = Number(req.body.value) || 0;
+  console.log("Degradation:", degradation);
+  broadcastDegradation();
+  res.json({ ok: true, degradation: degradation });
+});
+
+wss.on("connection", (ws) => {
   let listening = false;
 
-  ws.on("message", (msg) => {
+  ws.send(JSON.stringify({
+    type: "count",
+    listeners: listeners
+  }));
 
-    if (msg.toString() === "play" && !listening) {
+  ws.send(JSON.stringify({
+    type: "degradation",
+    value: degradation
+  }));
+
+  ws.on("message", (msg) => {
+    const text = msg.toString();
+
+    if (text === "play" && !listening) {
       listening = true;
       listeners++;
       broadcastCount();
     }
 
-    if (msg.toString() === "stop" && listening) {
+    if (text === "stop" && listening) {
       listening = false;
-      listeners--;
+      listeners = Math.max(0, listeners - 1);
       broadcastCount();
     }
-
   });
 
   ws.on("close", () => {
-
     if (listening) {
-      listeners--;
+      listeners = Math.max(0, listeners - 1);
       broadcastCount();
     }
-
   });
-
-  broadcastCount();
-
 });
 
 const PORT = process.env.PORT || 3000;
