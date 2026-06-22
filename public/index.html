@@ -3,31 +3,153 @@
 <head>
 <meta charset="utf-8">
 <title>Radio Ljerka</title>
+
+<style>
+body {
+  margin: 0;
+  background: #f7f4ec;
+  color: #8a6f45;
+  font-family: Georgia, serif;
+}
+
+.header {
+  padding: 30px 28px 0 28px;
+  min-height: 46vh;
+}
+
+h1 {
+  margin: 0;
+  font-size: 110px;
+  line-height: 0.85;
+  letter-spacing: -5px;
+  color: #8a6f45;
+  font-weight: 900;
+}
+
+.authors {
+  margin-top: 18px;
+  font-size: 28px;
+  color: #8a6f45;
+}
+
+.info {
+  margin-top: 38px;
+  max-width: 520px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.status {
+  margin-top: 24px;
+  font-size: 14px;
+}
+
+.controls {
+  margin-top: 18px;
+}
+
+button {
+  background: transparent;
+  border: 1px solid #8a6f45;
+  color: #8a6f45;
+  padding: 8px 14px;
+  margin-right: 8px;
+  font-family: Georgia, serif;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #8a6f45;
+  color: #f7f4ec;
+}
+
+audio {
+  display: none;
+}
+
+.image {
+  width: 100%;
+  display: block;
+  filter: sepia(45%) contrast(95%) saturate(70%);
+}
+</style>
 </head>
 
 <body>
-<h1>Radio Ljerka</h1>
 
-<p id="listeners">Trenutno sluša: 0</p>
+<section class="header">
+  <h1>paraset<br></h1>
+  <div class="authors">Rea Livaković, Georgia Lucas</div>
 
-<p>Online radio koji se gubi što ga više ljudi sluša.</p>
+  <div class="info">
+    Radio Ljerka emitira fragmente arhiva Ljerke Dulčić. Tijekom Drugog svjetskog rata njezin je rad bio vezan uz ilegalu, prijenos informacija i potrebu za diskretnošću.
+    <br><br>
+    Ovaj radio zamišljen je kao privatan i osjetljiv komunikacijski kanal. Što se više slušatelja priključi prijenosu, signal postaje nestabilniji i postupno se pretvara u šum.
+    <br><br>
+    Radio se brani od vlastite publike, štiteći sadržaj koji prenosi.
+  </div>
 
-<button id="play">Slušaj prijenos</button>
-<button id="stop">Prekini prijem</button>
+  <div class="status">
+    <p id="listeners">Trenutno sluša: 0</p>
+    <p id="status">Nisi spojena.</p>
+  </div>
 
-<br><br>
+  <div class="controls">
+    <button id="play">Slušaj prijenos</button>
+    <button id="stop">Prekini prijem</button>
+  </div>
 
+  <audio id="audio" src="./arhiv.mp3" loop></audio>
+</section>
 
-<audio id="audio" src="./arhiv.mp3" loop controls></audio>
-
-<p id="status">Nisi spojena.</p>
+<img class="image" src="./naslovnica.jpg" alt="Radio Ljerka">
 
 <script>
-const socket = new WebSocket(
-  location.origin.replace("http", "ws")
-);
-
+const socket = new WebSocket(location.origin.replace("http", "ws"));
 const audio = document.getElementById("audio");
+
+let audioContext;
+let source;
+let noise;
+let noiseGain;
+let degradation = 0;
+
+function setupAudio() {
+  if (audioContext) return;
+
+  audioContext = new AudioContext();
+
+  source = audioContext.createMediaElementSource(audio);
+  noise = audioContext.createBufferSource();
+  noiseGain = audioContext.createGain();
+
+  const bufferSize = audioContext.sampleRate * 2;
+  const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  noise.buffer = buffer;
+  noise.loop = true;
+
+  source.connect(audioContext.destination);
+  noise.connect(noiseGain);
+  noiseGain.connect(audioContext.destination);
+
+  noiseGain.gain.value = degradation;
+  noise.start();
+}
+
+function updateNoise() {
+  if (noiseGain) {
+    noiseGain.gain.value = degradation;
+  }
+
+  document.getElementById("degradation").innerText =
+    "Raspad signala: " + degradation;
+}
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -36,20 +158,21 @@ socket.onmessage = (event) => {
     document.getElementById("listeners").innerText =
       "Trenutno sluša: " + data.listeners;
   }
+
+  if (data.type === "degradation") {
+    degradation = Number(data.value);
+    updateNoise();
+  }
 };
 
-document.getElementById("play").onclick = () => {
-  audio.volume = 1;
-  audio.play()
-    .then(() => {
-      socket.send("play");
-      document.getElementById("status").innerText = "Slušaš prijenos.";
-    })
-    .catch((error) => {
-      document.getElementById("status").innerText =
-        "Zvuk se nije pokrenuo. Klikni play na audio playeru.";
-      console.log(error);
-    });
+document.getElementById("play").onclick = async () => {
+  setupAudio();
+  await audioContext.resume();
+
+  audio.play().then(() => {
+    socket.send("play");
+    document.getElementById("status").innerText = "Slušaš prijenos.";
+  });
 };
 
 document.getElementById("stop").onclick = () => {
@@ -58,5 +181,6 @@ document.getElementById("stop").onclick = () => {
   document.getElementById("status").innerText = "Prijem prekinut.";
 };
 </script>
+
 </body>
 </html>
