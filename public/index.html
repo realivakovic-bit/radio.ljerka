@@ -9,7 +9,6 @@
 <h1>Radio Ljerka</h1>
 
 <p id="listeners">Trenutno sluša: 0</p>
-<p id="degradation">Raspad signala: 0</p>
 
 <p>Online radio koji se gubi što ga više ljudi sluša.</p>
 
@@ -18,56 +17,17 @@
 
 <br><br>
 
+
 <audio id="audio" src="./arhiv.mp3" loop controls></audio>
 
 <p id="status">Nisi spojena.</p>
 
 <script>
-const socket = new WebSocket(location.origin.replace("http", "ws"));
+const socket = new WebSocket(
+  location.origin.replace("http", "ws")
+);
+
 const audio = document.getElementById("audio");
-
-let audioContext;
-let source;
-let noise;
-let noiseGain;
-let degradation = 0;
-
-function setupAudio() {
-  if (audioContext) return;
-
-  audioContext = new AudioContext();
-
-  source = audioContext.createMediaElementSource(audio);
-  noise = audioContext.createBufferSource();
-  noiseGain = audioContext.createGain();
-
-  const bufferSize = audioContext.sampleRate * 2;
-  const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-  const data = buffer.getChannelData(0);
-
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
-  }
-
-  noise.buffer = buffer;
-  noise.loop = true;
-
-  source.connect(audioContext.destination);
-  noise.connect(noiseGain);
-  noiseGain.connect(audioContext.destination);
-
-  noiseGain.gain.value = degradation;
-  noise.start();
-}
-
-function updateNoise() {
-  if (noiseGain) {
-    noiseGain.gain.value = degradation;
-  }
-
-  document.getElementById("degradation").innerText =
-    "Raspad signala: " + degradation;
-}
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -76,17 +36,10 @@ socket.onmessage = (event) => {
     document.getElementById("listeners").innerText =
       "Trenutno sluša: " + data.listeners;
   }
-
-  if (data.type === "degradation") {
-    degradation = Number(data.value);
-    updateNoise();
-  }
 };
 
-document.getElementById("play").onclick = async () => {
-  setupAudio();
-  await audioContext.resume();
-
+document.getElementById("play").onclick = () => {
+  audio.volume = 1;
   audio.play()
     .then(() => {
       socket.send("play");
